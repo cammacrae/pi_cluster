@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forgejo-config
+data:
+  app.ini: |
+    APP_NAME = Forgejo: Personal Git
+    RUN_MODE = prod
+
+    [server]
+    DOMAIN = git.pi.local
+    ROOT_URL = http://git.pi.local/
+    HTTP_PORT = 3000
+    SSH_PORT = 22
+    SSH_LISTEN_PORT = 2222
+
+    [database]
+    DB_TYPE = postgres
+    HOST = postgres.forgejo.svc.cluster.local:5432
+    NAME = forgejo
+    USER = forgejo
+    ; PASSWORD injected via env var FORGEJO__database__PASSWD
+
+    [service]
+    DISABLE_REGISTRATION = true
+    REQUIRE_SIGNIN_VIEW = false
+
+    [repository]
+    DEFAULT_BRANCH = main

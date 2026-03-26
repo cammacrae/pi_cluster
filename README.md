@@ -83,6 +83,47 @@ export KUBECONFIG=$(pwd)/kubeconfig.yml
 kubectl get nodes
 ```
 
+## Deploying workloads
+
+Kubernetes manifests live in `k8s/`, organised with Kustomize.
+
+### Longhorn (distributed storage)
+
+Download the Longhorn manifest (one-time):
+
+```sh
+curl -Lo k8s/longhorn/longhorn.yaml \
+  https://raw.githubusercontent.com/longhorn/longhorn/v1.8.1/deploy/longhorn.yaml
+```
+
+Apply and set as default StorageClass:
+
+```sh
+kubectl apply -k k8s/
+kubectl patch storageclass local-path \
+  -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
+```
+
+Wait for Longhorn to be ready (~2-5 min on Pi hardware):
+
+```sh
+kubectl -n longhorn-system get pods -w
+```
+
+### Forgejo + Postgres
+
+Deployed automatically as part of `kubectl apply -k k8s/`. Postgres and Forgejo use Longhorn-backed PVCs for persistent storage.
+
+Check pod status:
+
+```sh
+kubectl -n forgejo get pods -w
+```
+
+Forgejo is accessible via Traefik ingress at `http://git.pi.local/`. Add a DNS entry on your router or an `/etc/hosts` entry on your local machine pointing `git.pi.local` to any node IP.
+
+Secrets in `k8s/postgres/secret.yaml` and `k8s/forgejo/secret.yaml` contain placeholder credentials — change these before deploying. SOPS encryption will be added later.
+
 ## Project structure
 
 ```
@@ -94,9 +135,16 @@ kubectl get nodes
 │   ├── common/              # Base OS setup for all nodes
 │   ├── k3s_server/          # k3s server install (control plane)
 │   └── k3s_agent/           # k3s agent install (workers)
+├── k8s/
+│   ├── longhorn/            # Distributed storage (vendored manifest)
+│   ├── postgres/            # Postgres StatefulSet for Forgejo
+│   └── forgejo/             # Forgejo Git forge (ingress, config, storage)
 └── site.yml                 # Master playbook
 ```
 
 ## Roadmap
 
+- [ ] SOPS encryption for k8s secrets
+- [ ] Flux for GitOps (sync manifests from Forgejo)
+- [ ] Forgejo push mirror to GitHub
 - [ ] Beowulf cluster setup (OpenMPI, NFS shared storage)

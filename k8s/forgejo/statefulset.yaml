@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: forgejo
+  labels:
+    app: forgejo
+spec:
+  serviceName: forgejo
+  replicas: 1
+  selector:
+    matchLabels:
+      app: forgejo
+  template:
+    metadata:
+      labels:
+        app: forgejo
+    spec:
+      containers:
+        - name: forgejo
+          image: codeberg.org/forgejo/forgejo:14.0.3
+          ports:
+            - name: http
+              containerPort: 3000
+            - name: ssh
+              containerPort: 2222
+          env:
+            - name: FORGEJO__database__PASSWD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: forgejo-data
+              mountPath: /data
+            - name: forgejo-config
+              mountPath: /data/gitea/conf/app.ini
+              subPath: app.ini
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 250m
+            limits:
+              memory: 1Gi
+              cpu: "2"
+      volumes:
+        - name: forgejo-config
+          configMap:
+            name: forgejo-config
+  volumeClaimTemplates:
+    - metadata:
+        name: forgejo-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 10Gi
