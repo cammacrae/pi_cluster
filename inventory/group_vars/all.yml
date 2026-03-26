@@ -1,0 +1,17 @@
+---
+ansible_user: pi
+ansible_python_interpreter: /usr/bin/python3
+
+# Pin a k3s version or leave empty for latest
+# k3s_version: "v1.31.5+k3s1"
+
+# Control plane address (derived from inventory)
+k3s_server_ip: "{{ hostvars['pi-cp1']['ansible_host'] }}"
+
+# Static /etc/hosts entries for all cluster nodes
+# Keep in sync with inventory/hosts.yml
+cluster_hosts:
+  pi-cp1: 192.168.1.100
+  pi-w1: 192.168.1.101
+  pi-w2: 192.168.1.102
+  pi-w3: 192.168.1.103

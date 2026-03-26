@@ -1,0 +1,10 @@
+*.retry
+.facts_cache/
+*.vault_pass
+.vault_pass.txt
+vault_password_file
+node-token
+kubeconfig.yml
+*.pyc
+__pycache__/
+.env

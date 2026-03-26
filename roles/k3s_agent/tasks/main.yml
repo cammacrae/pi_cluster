@@ -1,0 +1,35 @@
+---
+- name: Check if k3s agent is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Check if control plane token is available
+  ansible.builtin.set_fact:
+    k3s_server_ready: "{{ hostvars['pi-cp1']['k3s_node_token'] is defined }}"
+
+- name: Skip agent install if control plane is not provisioned
+  ansible.builtin.debug:
+    msg: "Skipping k3s agent install — control plane has not been provisioned yet."
+  when: not k3s_server_ready
+
+- name: Install k3s agent
+  ansible.builtin.shell: |
+    curl -sfL {{ k3s_install_url }} | \
+      K3S_URL=https://{{ k3s_server_ip }}:6443 \
+      K3S_TOKEN={{ hostvars['pi-cp1']['k3s_node_token'] }} \
+      INSTALL_K3S_VERSION={{ k3s_version | default('') }} \
+      sh -s - agent {{ k3s_extra_agent_args }}
+  args:
+    creates: /usr/local/bin/k3s
+  when: k3s_server_ready and not k3s_binary.stat.exists
+
+- name: Wait for k3s-agent service to start
+  ansible.builtin.service:
+    name: k3s-agent
+    state: started
+  register: k3s_agent_service
+  retries: 5
+  delay: 5
+  until: k3s_agent_service is not failed
+  when: k3s_server_ready

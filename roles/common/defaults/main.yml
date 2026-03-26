@@ -1,0 +1,11 @@
+---
+timezone: Australia/Melbourne
+locale: en_AU.UTF-8
+
+common_packages:
+  - avahi-daemon
+  - curl
+  - apt-transport-https
+  - ca-certificates
+  - open-iscsi
+  - nfs-common

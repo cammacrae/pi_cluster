@@ -1,0 +1,134 @@
+---
+- name: Disable cloud-init management of hostname and /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/cloud/cloud.cfg
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^manage_etc_hosts', line: 'manage_etc_hosts: false' }
+    - { regexp: '^preserve_hostname', line: 'preserve_hostname: true' }
+  failed_when: false
+
+- name: Configure /etc/hosts with cluster nodes
+  ansible.builtin.template:
+    src: hosts.j2
+    dest: /etc/hosts
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Write /etc/hostname
+  ansible.builtin.copy:
+    content: "{{ inventory_hostname }}\n"
+    dest: /etc/hostname
+    mode: "0644"
+
+- name: Set hostname for current session
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  notify: Reboot node
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+- name: Set locale
+  ansible.builtin.command: raspi-config nonint do_change_locale {{ locale }}
+  changed_when: false
+
+- name: Update apt cache and upgrade packages
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+    cache_valid_time: 3600
+
+- name: Install common packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+
+# --- GPU / boot config ---
+
+- name: Minimize GPU memory (headless)
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^gpu_mem='
+    line: 'gpu_mem=16'
+  notify: Reboot node
+
+- name: Enable cgroups in /boot/firmware/cmdline.txt
+  ansible.builtin.replace:
+    path: /boot/firmware/cmdline.txt
+    regexp: '^(.(?!.*cgroup_memory=1 cgroup_enable=memory).*)$'
+    replace: '\1 cgroup_memory=1 cgroup_enable=memory'
+  notify: Reboot node
+
+# --- Swap / kernel / networking ---
+
+- name: Disable swap
+  ansible.builtin.command: swapoff -a
+  changed_when: false
+  failed_when: false
+
+- name: Remove swap packages
+  ansible.builtin.apt:
+    name:
+      - dphys-swapfile
+      - zram-tools
+    state: absent
+
+- name: Disable zram swap service
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - mkzram
+    - zramswap
+  failed_when: false
+
+- name: Load required kernel modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - br_netfilter
+    - overlay
+
+- name: Ensure kernel modules load on boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k3s.conf
+    content: |
+      br_netfilter
+      overlay
+    mode: "0644"
+
+- name: Set sysctl params for k3s networking
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-k3s.conf
+    reload: true
+  loop:
+    - { key: net.bridge.bridge-nf-call-iptables, value: "1" }
+    - { key: net.bridge.bridge-nf-call-ip6tables, value: "1" }
+    - { key: net.ipv4.ip_forward, value: "1" }
+
+# --- SSH hardening ---
+
+- name: Disable password authentication for SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+  notify: Restart sshd
+
+- name: Disable root login via SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin no'
+  notify: Restart sshd
+
+- name: Flush handlers (reboot if cgroups changed)
+  ansible.builtin.meta: flush_handlers

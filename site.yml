@@ -1,0 +1,19 @@
+---
+- name: Common setup for all cluster nodes
+  hosts: cluster
+  become: true
+  roles:
+    - common
+
+- name: Install k3s server on control plane
+  hosts: control
+  become: true
+  roles:
+    - k3s_server
+
+- name: Install k3s agents on worker nodes
+  hosts: workers
+  become: true
+  serial: 1
+  roles:
+    - k3s_agent
