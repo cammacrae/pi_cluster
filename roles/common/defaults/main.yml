@@ -1,6 +1,7 @@
 ---
 timezone: Australia/Melbourne
 locale: en_AU.UTF-8
+disable_wifi: true
 
 common_packages:
   - avahi-daemon

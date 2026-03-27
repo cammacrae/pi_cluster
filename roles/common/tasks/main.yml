@@ -56,6 +56,36 @@
     line: 'gpu_mem=16'
   notify: Reboot node
 
+- name: Disable WiFi
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^dtoverlay=disable-wifi'
+    line: 'dtoverlay=disable-wifi'
+  when: disable_wifi
+  notify: Reboot node
+
+- name: Enable WiFi
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^dtoverlay=disable-wifi'
+    state: absent
+  when: not disable_wifi
+  notify: Reboot node
+
+- name: Enable PCIe for NVMe storage
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^dtparam=pciex1'
+    line: 'dtparam=pciex1'
+  notify: Reboot node
+
+- name: Set PCIe to Gen 3 speed
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^dtparam=pciex1_gen='
+    line: 'dtparam=pciex1_gen=3'
+  notify: Reboot node
+
 - name: Enable cgroups in /boot/firmware/cmdline.txt
   ansible.builtin.replace:
     path: /boot/firmware/cmdline.txt
@@ -65,27 +95,10 @@
 
 # --- Swap / kernel / networking ---
 
-- name: Disable swap
-  ansible.builtin.command: swapoff -a
-  changed_when: false
-  failed_when: false
-
-- name: Remove swap packages
+- name: Remove dphys-swapfile (SD card swap)
   ansible.builtin.apt:
-    name:
-      - dphys-swapfile
-      - zram-tools
+    name: dphys-swapfile
     state: absent
-
-- name: Disable zram swap service
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    state: stopped
-    enabled: false
-  loop:
-    - mkzram
-    - zramswap
-  failed_when: false
 
 - name: Load required kernel modules
   community.general.modprobe:

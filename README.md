@@ -40,9 +40,43 @@ ansible-playbook site.yml
 This will:
 
 - Set hostnames and `/etc/hosts` on all nodes
-- Install common packages and apply OS-level config (cgroups, iptables legacy mode, SSH hardening)
+- Install common packages and apply OS-level config (cgroups, SSH hardening)
+- Disable WiFi (all nodes are expected to be on Ethernet)
 - Install k3s server on the control plane
 - Join all workers to the cluster
+
+WiFi is disabled by default via `dtoverlay=disable-wifi`. To keep WiFi enabled on a specific node, create a host_vars file:
+
+```yaml
+# inventory/host_vars/pi-w1.yml
+disable_wifi: false
+```
+
+## Booting from NVMe
+
+If a Pi has an NVMe drive attached, you can clone the SD card to it and boot from NVMe instead.
+
+From the Pi:
+
+```sh
+# Clone SD card to NVMe
+sudo dd if=/dev/mmcblk0 of=/dev/nvme0n1 bs=4M status=progress
+
+# Expand partition to use full NVMe
+sudo parted /dev/nvme0n1 resizepart 2 100%
+
+# Check and resize filesystem
+sudo e2fsck -f /dev/nvme0n1p2
+sudo resize2fs /dev/nvme0n1p2
+
+# Set boot order: NVMe first
+sudo raspi-config nonint do_boot_order B2
+
+# Reboot
+sudo reboot
+```
+
+After reboot, verify root is on NVMe with `lsblk`. The SD card can then be removed.
 
 ## Running against a single node
 
