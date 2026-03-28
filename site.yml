@@ -5,6 +5,12 @@
   roles:
     - common
 
+- name: Connect nodes to NetBird mesh network
+  hosts: cluster
+  become: true
+  roles:
+    - netbird
+
 - name: Install k3s server on control plane
   hosts: control
   become: true

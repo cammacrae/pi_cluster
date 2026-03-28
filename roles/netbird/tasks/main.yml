@@ -1,0 +1,34 @@
+---
+- name: Check if NetBird is already installed
+  ansible.builtin.stat:
+    path: /usr/bin/netbird
+  register: netbird_binary
+
+- name: Install NetBird
+  ansible.builtin.shell: |
+    curl -fsSL https://pkgs.netbird.io/install.sh | sh
+  args:
+    creates: /usr/bin/netbird
+  when: not netbird_binary.stat.exists
+
+- name: Check if NetBird is already connected
+  ansible.builtin.command: netbird status
+  register: netbird_status
+  changed_when: false
+  failed_when: false
+
+- name: Connect NetBird to management server
+  ansible.builtin.command: >
+    netbird up
+    --management-url {{ netbird_management_url }}
+    --setup-key {{ netbird_setup_key }}
+    {{ '--allow-server-ssh' if netbird_allow_ssh else '' }}
+    {{ '--enable-ssh-root' if netbird_allow_ssh_root else '' }}
+  when: "'Connected' not in netbird_status.stdout"
+  notify: Restart netbird
+
+- name: Ensure NetBird service is enabled
+  ansible.builtin.systemd:
+    name: netbird
+    enabled: true
+    state: started

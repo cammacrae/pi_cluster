@@ -18,6 +18,7 @@ All nodes run Raspberry Pi OS Lite (64-bit).
 - Ansible installed on your local machine
 - SSH key access to all Pis (`ssh-copy-id pi@<ip>`)
 - DHCP reservations configured on your router for each Pi
+- [1Password CLI](https://developer.1password.com/docs/cli/) installed and signed in (`eval $(op signin)`)
 
 Install required Ansible collections:
 
